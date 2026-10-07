@@ -1,0 +1,70 @@
+/*
+ * sogo-dark: dark theme overrides for SOGo 5.12 (https://github.com/kaibae19/sogo-dark)
+ * Loaded by theme.js only when the dark theme is active.
+ *
+ * Each rule below covers a color SOGo hardcodes instead of taking it from the
+ * Angular Material theme (see Mantis #4500). Selectors were found on 5.12.7.
+ */
+:root {
+  --sd-bg: #22262b;
+  --sd-card: #2b2f36;
+  --sd-offhours: #1f2328;
+  --sd-line: rgba(255, 255, 255, .08);
+  --sd-text: rgba(255, 255, 255, .87);
+  --sd-text-2: rgba(255, 255, 255, .6);
+  --sd-text-3: rgba(255, 255, 255, .38);
+  --sd-link: #80cbc4;
+  --sd-login-form: #00695c;
+}
+
+/* Cards: calendar grid, detail views */
+md-card, md-card > md-content { background-color: var(--sd-card) !important; color: var(--sd-text); }
+
+/* Sidebar section headers and list item names */
+.md-subheader, .md-subheader .md-subheader-content { color: var(--sd-text-2) !important; }
+.sg-item-name, md-list-item, md-list-item p { color: var(--sd-text) !important; }
+
+/* Empty-state titles ("No message selected") */
+.view-detail .sg-md-title { color: var(--sd-text-3) !important; }
+
+/* Calendar: day header strip, off-hours, grid lines (hardcoded white / beige), labels */
+md-toolbar.daysView { background-color: var(--sd-card) !important; }
+.clickableHourCell.outOfDay { background-color: var(--sd-offhours) !important; }
+.clickableHourCell, .clickableHourCell .minutes15, .minutes30, .hourCells, .hours .hour,
+sg-calendar-day.day, .days .day, .dayLabels .day, .allDaysView, .allDaysView--sidenav { border-color: var(--sd-line) !important; }
+.dayLabels .md-fg:not(.md-accent), .dayLabels .sg-md-caption { color: var(--sd-text-2) !important; }
+.hours .hour { color: var(--sd-text-3) !important; }
+
+/* Login page */
+.md-whiteframe-3dp { background-color: var(--sd-card) !important; }
+.sg-login.md-accent { background-color: var(--sd-login-form) !important; }
+.sg-login md-switch .md-label, .sg-login .md-label { color: var(--sd-text) !important; }
+
+/* Mail list: flagged and selected rows */
+.sg-star-bg { background-color: rgba(255, 193, 7, .14) !important; }
+md-list-item.md-bg.md-accent, md-list-item.md-bg.md-accent .md-button { color: rgba(255, 255, 255, .95) !important; }
+
+/* Reading view: recipient chips, links */
+md-chip { background-color: var(--sd-line) !important; color: var(--sd-text) !important; }
+.view-detail a:not(.md-button), md-dialog a:not(.md-button) { color: var(--sd-link); }
+
+/* HTML mail is written for a white page: show it on a light card. Plain text stays dark. */
+.sogo-dark .mailer_htmlcontent { background-color: #fafafa; color: #1d2328; color-scheme: light; padding: 16px 20px; border-radius: 6px; }
+.sogo-dark .mailer_htmlcontent a:not(.md-button) { color: #00695c; }
+
+/* Compose dialog and CKEditor 5 (themed through its own variables) */
+md-dialog, md-dialog md-dialog-content, md-dialog form { background-color: var(--sd-card) !important; color: var(--sd-text); }
+md-dialog md-input-container .md-input, md-dialog md-chips .md-chips { border-color: var(--sd-text-3) !important; color: var(--sd-text) !important; }
+.sogo-dark {
+  --ck-color-base-background: #22262b; --ck-color-base-foreground: #2b2f36; --ck-color-base-border: rgba(255, 255, 255, .12);
+  --ck-color-text: rgba(255, 255, 255, .87); --ck-color-toolbar-background: #2b2f36; --ck-color-toolbar-border: rgba(255, 255, 255, .12);
+  --ck-color-button-default-hover-background: #3a3f47; --ck-color-button-default-active-background: #4c525c;
+  --ck-color-button-on-background: #3a3f47; --ck-color-button-on-hover-background: #4c525c; --ck-color-button-on-color: #80cbc4;
+  --ck-color-dropdown-panel-background: #2b2f36; --ck-color-dropdown-panel-border: rgba(255, 255, 255, .12);
+  --ck-color-panel-background: #2b2f36; --ck-color-panel-border: rgba(255, 255, 255, .12);
+  --ck-color-list-background: #2b2f36; --ck-color-list-button-hover-background: #3a3f47; --ck-color-list-button-on-background: #00695c;
+  --ck-color-input-background: #22262b; --ck-color-input-border: rgba(255, 255, 255, .2); --ck-color-input-text: rgba(255, 255, 255, .87);
+  --ck-color-labeled-field-label-background: #2b2f36; --ck-color-focus-border: #64ffda;
+}
+.sogo-dark .ck.ck-editor__editable, .sogo-dark .ck.ck-toolbar, .sogo-dark .ck.ck-editor__main > .ck-editor__editable { background: var(--ck-color-base-background) !important; color: var(--ck-color-text) !important; }
+.sogo-dark .ck.ck-icon, .sogo-dark .ck.ck-button { color: var(--ck-color-text) !important; }

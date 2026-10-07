@@ -1,0 +1,9 @@
+# Example: mount sogo-dark into a SOGo container (tested with pmietlicki/sogo, SOGo 5.12.7).
+# Paths are where the Debian/Ubuntu SOGo packages keep their web resources.
+services:
+  sogo:
+    image: pmietlicki/sogo:latest   # pin a digest in production
+    volumes:
+      - ./srv:/srv
+      - ./sogo-dark/js/sogo-dark.js:/usr/lib/GNUstep/SOGo/WebServerResources/js/sogo-dark.js:ro
+      - ./sogo-dark/css/sogo-dark.css:/usr/lib/GNUstep/SOGo/WebServerResources/css/sogo-dark.css:ro
