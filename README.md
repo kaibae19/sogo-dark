@@ -13,7 +13,7 @@ More views (contacts, preferences, login, plain-text mail) are in [`docs/screens
 ## What it does
 
 - **Auto by default:** the browser's `prefers-color-scheme` decides when the page loads. On a light system you get stock SOGo, unchanged.
-- **Per-browser override:** set `localStorage["sogo-theme"]` to `light`, `dark` or `auto` (for example in the browser console). A system theme switch takes effect on the next page load, so an open draft is never reloaded away.
+- **Theme setting in Preferences → General:** Auto (follow system), Light or Dark. The choice is saved in the browser (`localStorage["sogo-theme"]`), so it is per browser rather than per user. It applies on the next page load, and a **Reload now** button appears after a change. sogo-dark never reloads by itself, because the Preferences page can hold other unsaved changes; for the same reason, a system theme switch also waits for the next load.
 - **Dark theme:** a dark Angular Material theme, plus about 20 CSS rules for the colors SOGo hardcodes instead of taking from the theme. These include the calendar grid, off-hours and grid lines, the login page, flagged and selected mail rows, chips, links, the compose dialog and the CKEditor toolbar.
 - **HTML mail** is shown on a light "paper" card inside the dark reading pane, because most HTML mail is designed for a white page. Plain-text mail stays dark.
 
@@ -38,6 +38,7 @@ Tested with **SOGo 5.12.7** (Debian/Ubuntu packages, in the `pmietlicki/sogo` im
 - SOGo normally serves a precompiled `theme-default.css`. Only with `SOGoUIxDebugEnabled = YES` does it build the theme at runtime, which lets `sogo-dark.js` register a dark theme. This is the workaround described in [Mantis #4500](https://bugs.sogo.nu/view.php?id=4500). Debug mode may change other behavior in SOGo's JavaScript; we haven't measured that.
 - SOGo has `SOGoUIAdditionalJSFiles` but no setting for extra stylesheets, so `sogo-dark.js` adds `sogo-dark.css` itself, and only in dark mode.
 - The CSS overrides target SOGo's markup and class names, so a SOGo upgrade can break individual rules. Each rule says what it covers.
+- The Theme field is added to SOGo's Preferences page by script. If a SOGo upgrade changes that page, the field may not appear, but the theme still follows the saved choice or the system.
 - Not covered yet: printing, the mobile layout, some dialogs we haven't opened (for example ACL and event editors), and browsers other than Chromium.
 
 ## Upstream
@@ -46,7 +47,7 @@ The better fix belongs in SOGo itself. We plan to propose:
 
 1. A `SOGoUIAdditionalCSSFiles` setting, the stylesheet counterpart of `SOGoUIAdditionalJSFiles`.
 2. Replacing hardcoded SCSS colors with theme palette references ([Mantis #4500](https://bugs.sogo.nu/view.php?id=4500)). `css/sogo-dark.css` is effectively the list of places.
-3. A built-in light / dark / auto preference.
+3. A built-in light / dark / auto preference, stored per user on the server instead of per browser.
 
 If those land, this repo shrinks to a palette.
 
