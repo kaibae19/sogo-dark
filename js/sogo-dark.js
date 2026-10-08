@@ -4,6 +4,10 @@
  * Mode, per browser: localStorage "sogo-theme" = "light" | "dark" | "auto" (default).
  * Auto follows prefers-color-scheme when the page loads. Users pick the mode in
  * Preferences > General > Theme (added by this script).
+ *
+ * Also remembers the toolbar's Expand button (folder list hidden) per module, Mail / Calendar /
+ * Contacts, in localStorage "sogo-expand-<module>"; SOGo itself reopens the list on every page
+ * load. Off switch: Preferences > General > Expanded view ("sogo-remember-expand" = "off").
  * Load with SOGoUIAdditionalJSFiles = ("js/sogo-dark.js") and SOGoUIxDebugEnabled = YES (see README).
  */
 (function() {
@@ -17,6 +21,42 @@
 
   if (dark) applyDarkTheme();
   if (/\/Preferences/.test(location.pathname)) watchForPreferences();
+
+  var REMEMBER_KEY = 'sogo-remember-expand';
+  var remember = get(REMEMBER_KEY) !== 'off';
+  var module = (location.pathname.match(/\/so\/[^\/]+\/(Mail|Calendar|Contacts)\b/) || [])[1];
+  if (module) whenReady(function() { return rememberExpand(module.toLowerCase()); });
+
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  // Retry fn() until it returns true (Angular compiles the toolbar after load), for up to 15 s.
+  function whenReady(fn) {
+    var tries = 0;
+    (function poll() { if (!fn() && ++tries < 60) setTimeout(poll, 250); })();
+  }
+
+  // The toolbar button calls toggleLeft() on the module's controller scope; leftIsClose is the
+  // state, reset to open by the controller's $onInit and its gt-md watch. Wrap the function to
+  // save the state, then restore it once those have run (only on wide screens, where the
+  // button is the Expand icon; on narrow ones it opens a menu drawer).
+  function rememberExpand(mod) {
+    var btn = document.querySelector('[ng-click="toggleLeft()"]');
+    var scope = btn && window.angular && angular.element(btn).scope();
+    while (scope && !Object.prototype.hasOwnProperty.call(scope, 'toggleLeft')) scope = scope.$parent;
+    if (!scope || typeof scope.isGtMedium === 'undefined') return false;
+    var key = 'sogo-expand-' + mod, toggle = scope.toggleLeft;
+    scope.toggleLeft = function() {
+      var r = toggle.apply(this, arguments);
+      if (remember && scope.isGtMedium) set(key, scope.leftIsClose ? 'closed' : 'open');
+      return r;
+    };
+    if (remember && scope.isGtMedium && get(key) === 'closed') {
+      scope.leftIsClose = true;
+      scope.$applyAsync();
+    }
+    return true;
+  }
 
   function applyDarkTheme() {
     // SOGo has SOGoUIAdditionalJSFiles but no CSS counterpart: load the override stylesheet from here.
@@ -47,9 +87,10 @@
   // browser only (localStorage), and applies on the next page load: the Angular theme is fixed
   // at startup, and reloading on our own could drop other unsaved preferences.
   function watchForPreferences() {
+    var add = function() { addThemeField(); addExpandField(); };
     var start = function() {
-      addThemeField();
-      new MutationObserver(addThemeField).observe(document.body, {childList: true, subtree: true});
+      add();
+      new MutationObserver(add).observe(document.body, {childList: true, subtree: true});
     };
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
   }
@@ -81,6 +122,29 @@
       '    <span ng-show="sd.changed"> Applies on the next page load.' +
       '      <md-button class="md-accent" ng-click="sdReload()">Reload now</md-button></span>' +
       '  </div>' +
+      '</md-input-container>')(scope);
+    after.parentNode.insertBefore(field[0], after.nextSibling);
+    scope.$applyAsync();
+  }
+
+  // Preferences > General: "Expanded view" switch, after the Theme field. Browser only, like Theme;
+  // applies on the next page load of Mail, Calendar or Contacts.
+  function addExpandField() {
+    if (document.getElementById('sogo-dark-expand-field')) return;
+    var after = document.getElementById('sogo-dark-theme-field');
+    var injector = window.angular && angular.element(document.body).injector();
+    if (!after || !injector) return;
+
+    var scope = injector.get('$rootScope').$new(true);
+    scope.sx = {remember: remember};
+    scope.sxSave = function() { set(REMEMBER_KEY, scope.sx.remember ? 'on' : 'off'); };
+
+    var field = injector.get('$compile')(
+      '<md-input-container id="sogo-dark-expand-field" class="md-block md-input-has-value md-auto-horizontal-margin">' +
+      '  <label>Expanded view</label>' +
+      '  <md-checkbox ng-model="sx.remember" ng-change="sxSave()" aria-label="Remember Expand">' +
+      '    Remember the toolbar\'s Expand button separately for Mail, Calendar and Contacts</md-checkbox>' +
+      '  <div class="md-caption sogo-dark-hint">Saved in this browser only.</div>' +
       '</md-input-container>')(scope);
     after.parentNode.insertBefore(field[0], after.nextSibling);
     scope.$applyAsync();
