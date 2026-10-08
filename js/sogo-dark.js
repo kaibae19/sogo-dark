@@ -8,6 +8,9 @@
  * Also remembers the toolbar's Expand button (folder list hidden) per module, Mail / Calendar /
  * Contacts, in localStorage "sogo-expand-<module>"; SOGo itself reopens the list on every page
  * load. Off switch: Preferences > General > Expanded view ("sogo-remember-expand" = "off").
+ *
+ * Asks before Disconnect (the toolbar's logoff button sits next to the module icons and logs
+ * out at once). Off switch: Preferences > General > Disconnect ("sogo-confirm-logoff" = "off").
  * Load with SOGoUIAdditionalJSFiles = ("js/sogo-dark.js") and SOGoUIxDebugEnabled = YES (see README).
  */
 (function() {
@@ -25,22 +28,69 @@
   var REMEMBER_KEY = 'sogo-remember-expand';
   var remember = get(REMEMBER_KEY) !== 'off';
   var module = (location.pathname.match(/\/so\/[^\/]+\/(Mail|Calendar|Contacts)\b/) || [])[1];
-  if (module) whenReady(function() { return rememberExpand(module.toLowerCase()); });
+  if (module) restoreExpand(module.toLowerCase());
+
+  var CONFIRM_KEY = 'sogo-confirm-logoff';
+  document.addEventListener('click', onLogoffClick, true);
+
+  // Capture phase, so this runs before SOGo's own handler and the link's navigation. Read the
+  // setting at click time so a change in Preferences applies without a reload.
+  function onLogoffClick(ev) {
+    var a = ev.target.closest && ev.target.closest('a[href*="logoff"]');
+    if (!a || get(CONFIRM_KEY) === 'off' || a.getAttribute('data-sogo-dark-ok')) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();
+    var injector = window.angular && angular.element(document.body).injector();
+    var go = function() { a.setAttribute('data-sogo-dark-ok', '1'); a.click(); };
+    if (!injector) { if (window.confirm('Disconnect from SOGo?')) go(); return; }
+    var $mdDialog = injector.get('$mdDialog');
+    $mdDialog.show($mdDialog.confirm()
+      .title('Disconnect?')
+      .textContent('You will need to sign in again.')
+      .ariaLabel('Confirm disconnect')
+      .ok('Disconnect')
+      .cancel('Cancel')
+      .targetEvent(ev)).then(go, function() {});
+  }
 
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
-  // Retry fn() until it returns true (Angular compiles the toolbar after load), for up to 15 s.
-  function whenReady(fn) {
+  // Restore without the folder list showing and then sliding shut. This script runs before SOGo
+  // bootstraps, so when restoring, a "hold" class hides the list from the first paint (the same
+  // rules as SOGo's sg-close) with transitions off. Then set leftIsClose once the module
+  // controller is up (its $onInit and gt-md watch reset it to open), and drop the hold.
+  function restoreExpand(mod) {
+    var restore = remember && get('sogo-expand-' + mod) === 'closed' &&
+      window.matchMedia && window.matchMedia('(min-width: 1280px)').matches;   // Material's gt-md
+    if (restore) hold();
+    var done = function() { return rememberExpand(mod, restore) && (release(), true); };
+    angular.module('SOGo.Common').run(['$rootScope', function($rootScope) {
+      $rootScope.$$postDigest(function() { if (!done()) whenReady(done, release); });
+    }]);
+  }
+
+  function hold() {
+    var st = document.createElement('style');
+    st.textContent =
+      'html.sogo-dark-hold md-sidenav, html.sogo-dark-hold md-sidenav ~ * { transition: none !important; }' +
+      'html.sogo-dark-hold md-sidenav.md-locked-open.md-sidenav-left { margin-right: -20vw; transform: translateX(-100%); }';
+    document.head.appendChild(st);
+    document.documentElement.classList.add('sogo-dark-hold');
+  }
+  function release() {
+    setTimeout(function() { document.documentElement.classList.remove('sogo-dark-hold'); }, 300);
+  }
+
+  // Retry fn() until it returns true, for up to 15 s; then giveUp().
+  function whenReady(fn, giveUp) {
     var tries = 0;
-    (function poll() { if (!fn() && ++tries < 60) setTimeout(poll, 250); })();
+    (function poll() { if (fn()) return; if (++tries < 60) setTimeout(poll, 250); else if (giveUp) giveUp(); })();
   }
 
   // The toolbar button calls toggleLeft() on the module's controller scope; leftIsClose is the
-  // state, reset to open by the controller's $onInit and its gt-md watch. Wrap the function to
-  // save the state, then restore it once those have run (only on wide screens, where the
-  // button is the Expand icon; on narrow ones it opens a menu drawer).
-  function rememberExpand(mod) {
+  // state. Wrap the function to save the state (only on wide screens, where the button is the
+  // Expand icon; on narrow ones it opens a menu drawer), and close the list if restoring.
+  function rememberExpand(mod, restore) {
     var btn = document.querySelector('[ng-click="toggleLeft()"]');
     var scope = btn && window.angular && angular.element(btn).scope();
     while (scope && !Object.prototype.hasOwnProperty.call(scope, 'toggleLeft')) scope = scope.$parent;
@@ -51,7 +101,7 @@
       if (remember && scope.isGtMedium) set(key, scope.leftIsClose ? 'closed' : 'open');
       return r;
     };
-    if (remember && scope.isGtMedium && get(key) === 'closed') {
+    if (restore && scope.isGtMedium) {
       scope.leftIsClose = true;
       scope.$applyAsync();
     }
@@ -127,23 +177,28 @@
     scope.$applyAsync();
   }
 
-  // Preferences > General: "Expanded view" switch, after the Theme field. Browser only, like Theme;
-  // applies on the next page load of Mail, Calendar or Contacts.
+  // Preferences > General: our on/off switches, after the Theme field. Browser only, like Theme.
   function addExpandField() {
-    if (document.getElementById('sogo-dark-expand-field')) return;
-    var after = document.getElementById('sogo-dark-theme-field');
+    addSwitch('sogo-dark-expand-field', 'sogo-dark-theme-field', 'Expanded view', REMEMBER_KEY, remember,
+      'Remember the toolbar\'s Expand button separately for Mail, Calendar and Contacts (next page load)');
+    addSwitch('sogo-dark-logoff-field', 'sogo-dark-expand-field', 'Disconnect', CONFIRM_KEY, get(CONFIRM_KEY) !== 'off',
+      'Ask before disconnecting');
+  }
+
+  function addSwitch(id, afterId, label, key, value, text) {
+    if (document.getElementById(id)) return;
+    var after = document.getElementById(afterId);
     var injector = window.angular && angular.element(document.body).injector();
     if (!after || !injector) return;
 
     var scope = injector.get('$rootScope').$new(true);
-    scope.sx = {remember: remember};
-    scope.sxSave = function() { set(REMEMBER_KEY, scope.sx.remember ? 'on' : 'off'); };
+    scope.sw = {on: value};
+    scope.swSave = function() { set(key, scope.sw.on ? 'on' : 'off'); };
 
     var field = injector.get('$compile')(
-      '<md-input-container id="sogo-dark-expand-field" class="md-block md-input-has-value md-auto-horizontal-margin">' +
-      '  <label>Expanded view</label>' +
-      '  <md-checkbox ng-model="sx.remember" ng-change="sxSave()" aria-label="Remember Expand">' +
-      '    Remember the toolbar\'s Expand button separately for Mail, Calendar and Contacts</md-checkbox>' +
+      '<md-input-container id="' + id + '" class="md-block md-input-has-value md-auto-horizontal-margin">' +
+      '  <label>' + label + '</label>' +
+      '  <md-checkbox ng-model="sw.on" ng-change="swSave()" aria-label="' + label + '">' + text + '</md-checkbox>' +
       '  <div class="md-caption sogo-dark-hint">Saved in this browser only.</div>' +
       '</md-input-container>')(scope);
     after.parentNode.insertBefore(field[0], after.nextSibling);

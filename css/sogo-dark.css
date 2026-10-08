@@ -55,6 +55,7 @@ md-chip { background-color: var(--sd-line) !important; color: var(--sd-text) !im
 /* Compose dialog and CKEditor 5 (themed through its own variables) */
 md-dialog, md-dialog md-dialog-content, md-dialog form { background-color: var(--sd-card) !important; color: var(--sd-text); }
 md-dialog md-input-container .md-input, md-dialog md-chips .md-chips { border-color: var(--sd-text-3) !important; color: var(--sd-text) !important; }
+md-dialog md-dialog-actions .md-button.md-primary:not([disabled]) { color: var(--sd-link) !important; }   /* primary is blue-grey 800: unreadable on the card */
 .sogo-dark {
   --ck-color-base-background: #22262b; --ck-color-base-foreground: #2b2f36; --ck-color-base-border: rgba(255, 255, 255, .12);
   --ck-color-text: rgba(255, 255, 255, .87); --ck-color-toolbar-background: #2b2f36; --ck-color-toolbar-border: rgba(255, 255, 255, .12);
